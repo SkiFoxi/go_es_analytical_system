@@ -1,0 +1,10 @@
+*.md
+.git
+.gitignore
+*.log
+.env
+.DS_Store
+vendor/
+*.test
+coverage.out
+

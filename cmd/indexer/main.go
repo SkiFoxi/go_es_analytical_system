@@ -20,7 +20,8 @@ func main() {
 
 	// Инициализация Elasticsearch клиента
 	esCfg := elasticsearch.Config{
-		Addresses: []string{cfg.ElasticsearchURL},
+		Addresses:         []string{cfg.ElasticsearchURL},
+		DisableMetaHeader: true, // Для поддержки OpenSearch
 	}
 
 	esClient, err := elasticsearch.NewClient(esCfg)

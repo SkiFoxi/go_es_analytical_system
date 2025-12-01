@@ -1,4 +1,4 @@
-.PHONY: build run test clean docker-up docker-down docker-logs index help
+.PHONY: build run test clean docker-up docker-down docker-logs index help 
 
 help: ## Показать справку
 	@echo "Доступные команды:"
@@ -9,7 +9,7 @@ build: ## Собрать приложение
 	go build -o bin/indexer ./cmd/indexer
 
 run: ## Запустить сервер локально
-	go run cmd/server/main.go
+	go run ./cmd/server/main.go
 
 index: ## Индексировать тестовые данные
 	go run cmd/indexer/main.go
@@ -80,7 +80,9 @@ install-deps: ## Установить зависимости
 	go mod download
 	go mod tidy
 
-swagger: ## Сгенерировать Swagger/OpenAPI документацию
+create-swagger-docs: ## Сгенерировать Swagger документацию и файл docs
+	swag init -g cmd/server/main.go -o ./docs --parseDependency --parseInternal
+swagger: ## Сгенерировать Swagger/OpenAPI документацию    ## 1-й шаг
 	@echo "Генерация Swagger документации..."
 	swag init -g cmd/server/main.go -o ./docs --parseDependency --parseInternal
 	@echo "✓ Swagger документация сгенерирована в docs/"

@@ -5,10 +5,13 @@ import (
 	"encoding/json"
 	"log"
 	"net/http"
+	"time"
 
+	"github.com/akozadaev/go_es_analytical_system/internal/config"
 	"github.com/akozadaev/go_es_analytical_system/internal/models"
 	"github.com/akozadaev/go_es_analytical_system/internal/storage"
 	"github.com/gorilla/mux"
+	readiness "github.com/akozadaev/go_readiness"
 )
 
 // Handlers содержит зависимости для обработки HTTP запросов.
@@ -16,13 +19,15 @@ import (
 type Handlers struct {
 	esStorage *storage.ElasticsearchStorage // Хранилище для Elasticsearch/OpenSearch
 	pgStorage *storage.PostgresStorage      // Хранилище для PostgreSQL
+	cfg       *config.Config                // Конфигурация приложения
 }
 
 // NewHandlers создает новый экземпляр Handlers с заданными хранилищами.
-func NewHandlers(esStorage *storage.ElasticsearchStorage, pgStorage *storage.PostgresStorage) *Handlers {
+func NewHandlers(esStorage *storage.ElasticsearchStorage, pgStorage *storage.PostgresStorage, cfg *config.Config) *Handlers {
 	return &Handlers{
 		esStorage: esStorage,
 		pgStorage: pgStorage,
+		cfg:       cfg,
 	}
 }
 
@@ -210,6 +215,66 @@ func (h *Handlers) GetRegions(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 }
+
+
+// GetReadiness обрабатывает GET запрос на проверку готовности сервиса.
+// Проверяет подключение к БД, дисковое пространство, память и возвращает статус.
+// Эндпоинт: GET /readiness
+//
+// @Summary      Проверка готовности сервиса
+// @Description  Возвращает статус готовности сервиса, включая проверки БД, диска и памяти
+// @Tags         health
+// @Accept       json
+// @Produce      json
+// @Success      200  {object}  readiness.Report
+// @Failure      503  {object}  readiness.Report  "Сервис не готов"
+// @Router       /readiness [get]
+func (h *Handlers) GetReadiness(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	const defaultReadinessDBTimeout = 5 * time.Second
+
+	dbTimeout := time.Duration(h.cfg.ReadinessDBTimeoutSec) * time.Second
+	if h.cfg.ReadinessDBTimeoutSec <= 0 {
+		dbTimeout = defaultReadinessDBTimeout
+	}
+
+	version := h.cfg.BuildVersion
+	if version == "" {
+		version = "dev"
+	}
+
+	mbToBytes := func(mb int) uint64 {
+		return uint64(mb) * 1024 * 1024
+	}
+
+	opts := readiness.Options{
+		DBTimeout:        dbTimeout,
+		DiskPath:         h.cfg.ReadinessDiskPath,
+		DiskMinFreeBytes: mbToBytes(h.cfg.ReadinessDiskMinFreeMB),
+		RAMMinFreeBytes:  mbToBytes(h.cfg.ReadinessRAMMinFreeMB),
+		Version:          version,
+		Commit:           h.cfg.GitCommit,
+	}
+
+	rep, ok := readiness.Run(r.Context(), h.pgStorage.DB(), opts)
+	status := http.StatusOK
+	if !ok {
+		status = http.StatusServiceUnavailable
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(status)
+	if err := json.NewEncoder(w).Encode(rep); err != nil {
+		log.Printf("Error encoding readiness response: %v", err)
+		http.Error(w, "Internal server error", http.StatusInternalServerError)
+		return
+	}
+}
+
 
 // HealthCheck обрабатывает GET запрос на проверку работоспособности сервиса.
 // Используется для мониторинга и проверки доступности API.

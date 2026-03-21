@@ -101,7 +101,7 @@ func main() {
 	log.Println("Connected to PostgreSQL")
 
 	// Инициализация handlers
-	h := handlers.NewHandlers(esStorage, pgStorage)
+	h := handlers.NewHandlers(esStorage, pgStorage, cfg)
 
 	// Настройка роутера
 	router := mux.NewRouter()
@@ -110,6 +110,7 @@ func main() {
 	router.HandleFunc("/locations/{id}", h.GetLocation).Methods("GET")
 	router.HandleFunc("/business-types", h.GetBusinessTypes).Methods("GET")
 	router.HandleFunc("/regions", h.GetRegions).Methods("GET")
+	router.HandleFunc("/readiness", h.GetReadiness).Methods("GET")
 
 	// Swagger UI
 	router.PathPrefix("/swagger/").Handler(httpSwagger.Handler(

@@ -1,6 +1,6 @@
 module github.com/akozadaev/go_es_analytical_system
 
-go 1.23.4
+go 1.25.5
 
 require (
 	github.com/elastic/go-elasticsearch/v8 v8.19.0
@@ -12,6 +12,7 @@ require (
 
 require (
 	github.com/KyleBanks/depth v1.2.1 // indirect
+	github.com/akozadaev/go_readiness v1.0.0 // indirect
 	github.com/elastic/elastic-transport-go/v8 v8.7.0 // indirect
 	github.com/go-logr/logr v1.4.2 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect

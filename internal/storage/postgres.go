@@ -14,6 +14,15 @@ type PostgresStorage struct {
 	db *sql.DB // Подключение к базе данных PostgreSQL
 }
 
+// dbPinger wraps sql.DB to implement readiness.DBPinger
+type dbPinger struct {
+	db *sql.DB
+}
+
+func (d dbPinger) Ping(ctx context.Context) error {
+	return d.db.PingContext(ctx)
+}
+
 // NewPostgresStorage создает новый экземпляр PostgresStorage и устанавливает подключение к БД.
 // DSN должен быть в формате: "host=... port=... user=... password=... dbname=... sslmode=..."
 func NewPostgresStorage(dsn string) (*PostgresStorage, error) {
@@ -27,6 +36,11 @@ func NewPostgresStorage(dsn string) (*PostgresStorage, error) {
 	}
 
 	return &PostgresStorage{db: db}, nil
+}
+
+// DB возвращает pinger для базы данных для использования в readiness checks.
+func (ps *PostgresStorage) DB() dbPinger {
+	return dbPinger{db: ps.db}
 }
 
 // Close закрывает подключение к базе данных PostgreSQL.

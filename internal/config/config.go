@@ -3,6 +3,7 @@ package config
 
 import (
 	"os"
+	"strconv"
 )
 
 // Config содержит все параметры конфигурации приложения.
@@ -15,6 +16,14 @@ type Config struct {
 	PostgresPassword string // Пароль PostgreSQL
 	PostgresDB       string // Имя базы данных PostgreSQL
 	AppPort          string // Порт для HTTP сервера
+
+	// Readiness check parameters
+	ReadinessDBTimeoutSec int    // Таймаут для проверки БД в секундах
+	ReadinessDiskPath     string // Путь для проверки диска
+	ReadinessDiskMinFreeMB int   // Минимальное свободное место на диске в MB
+	ReadinessRAMMinFreeMB  int   // Минимальная свободная оперативная память в MB
+	BuildVersion          string // Версия сборки
+	GitCommit             string // Хэш коммита Git
 }
 
 // Load загружает конфигурацию из переменных окружения.
@@ -28,12 +37,28 @@ func Load() *Config {
 		PostgresPassword: getEnv("POSTGRES_PASSWORD", "analytical_pass"),
 		PostgresDB:       getEnv("POSTGRES_DB", "analytical_db"),
 		AppPort:          getEnv("APP_PORT", "8080"),
+
+		ReadinessDBTimeoutSec: getEnvInt("READINESS_DB_TIMEOUT_SEC", 5),
+		ReadinessDiskPath:     getEnv("READINESS_DISK_PATH", "."),
+		ReadinessDiskMinFreeMB: getEnvInt("READINESS_DISK_MIN_FREE_MB", 100),
+		ReadinessRAMMinFreeMB:  getEnvInt("READINESS_RAM_MIN_FREE_MB", 50),
+		BuildVersion:          getEnv("BUILD_VERSION", "dev"),
+		GitCommit:             getEnv("GIT_COMMIT", ""),
 	}
 }
 
 func getEnv(key, defaultValue string) string {
 	if value := os.Getenv(key); value != "" {
 		return value
+	}
+	return defaultValue
+}
+
+func getEnvInt(key string, defaultValue int) int {
+	if value := os.Getenv(key); value != "" {
+		if intVal, err := strconv.Atoi(value); err == nil {
+			return intVal
+		}
 	}
 	return defaultValue
 }

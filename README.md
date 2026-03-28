@@ -4,11 +4,12 @@
 
 ## Технологический стек
 
-- **Backend**: Go 1.23+
+- **Backend**: Go 1.25+
 - **Поисковая система**: Elasticsearch 8.11
 - **База данных**: PostgreSQL 16
 - **Веб-интерфейс**: Kibana (для мониторинга ES)
 - **Контейнеризация**: Docker & Docker Compose
+- **LLM (опционально)**: [Ollama](https://ollama.com) на localhost для эндпоинтов `/ollama/*`
 
 ## Архитектура
 
@@ -23,9 +24,10 @@
 
 ```
 .
-├── api/
-│   ├── openapi.yaml     # OpenAPI 3.0 спецификация
-│   └── README.md        # Документация по API
+├── docs/
+│   ├── docs.go          # Go-пакет для встраивания OpenAPI-спецификации
+│   ├── swagger.json     # OpenAPI 3.0 спецификация (JSON)
+│   └── swagger.yaml     # OpenAPI 3.0 спецификация (YAML)
 ├── cmd/
 │   ├── server/          # Основной сервер приложения
 │   └── indexer/         # Утилита для индексации данных
@@ -47,7 +49,7 @@
 ### Предварительные требования
 
 - Docker и Docker Compose
-- Go 1.23+ (для локальной разработки)
+- Go 1.25+ (для локальной разработки)
 
 ### Запуск через Docker Compose
 
@@ -260,6 +262,71 @@ go run cmd/indexer/main.go
 - `POSTGRES_PASSWORD` - Пароль PostgreSQL (по умолчанию: analytical_pass)
 - `POSTGRES_DB` - Имя базы данных (по умолчанию: analytical_db)
 - `APP_PORT` - Порт приложения (по умолчанию: 8080)
+- `OLLAMA_BASE_URL` - Базовый URL OpenAI-совместимого API Ollama (по умолчанию в клиенте: `http://localhost:11434/v1`; в Docker Compose для сервиса `app` задаётся `http://host.docker.internal:11434/v1`)
+- `OLLAMA_CHAT_MODEL` - Модель для `POST /ollama/chat` (пусто — значение по умолчанию из библиотеки [go_ollama_client](https://github.com/akozadaev/go_ollama_client))
+- `OLLAMA_AUTOCOMPLETE_MODEL` - Модель для `POST /ollama/autocomplete` (пусто — дефолт клиента)
+- `OLLAMA_EMBED_MODEL` - Модель эмбеддингов (зарезервировано под будущее использование; пусто — дефолт клиента)
+
+## Ollama
+
+Эндпоинты **`POST /ollama/chat`** и **`POST /ollama/autocomplete`** проксируют запросы в локальную Ollama через зависимость [go_ollama_client](https://github.com/akozadaev/go_ollama_client). Нужны установленная Ollama и скачанные модели (см. README того репозитория).
+
+### Доступ из Docker: `OLLAMA_HOST=0.0.0.0:11434`
+
+По умолчанию Ollama часто слушает только **`127.0.0.1:11434`**. Контейнер `app` ходит на хост по **`host.docker.internal`** (на Linux это обычно адрес вроде **`172.17.0.1`**). Пока Ollama привязана только к loopback, запросы из контейнера дают **`connection refused`**.
+
+**Запуск вручную (одна сессия):**
+
+```bash
+OLLAMA_HOST=0.0.0.0:11434 ollama serve
+```
+
+**Постоянно через systemd** (если Ollama установлена как сервис):
+
+```bash
+sudo systemctl edit ollama
+```
+
+В открывшемся фрагменте укажите:
+
+```ini
+[Service]
+Environment="OLLAMA_HOST=0.0.0.0:11434"
+```
+
+Затем примените изменения и перезапустите сервис:
+
+```bash
+sudo systemctl daemon-reload
+sudo systemctl restart ollama
+```
+
+### Проверка с хоста
+
+После настройки `OLLAMA_HOST` оба запроса должны успешно отвечать (второй имитирует доступ «с Docker-моста» к тому же хосту):
+
+```bash
+curl -sS http://127.0.0.1:11434/api/version
+curl -sS http://172.17.0.1:11434/api/version
+```
+
+Если второй адрес у вас другой (не `172.17.0.1`), подставьте IP интерфейса **`docker0`** на машине: `ip -brief addr show docker0`.
+
+### Безопасность
+
+При `0.0.0.0:11434` API Ollama доступен на всех привязанных к хосту интерфейсах (в том числе в LAN). При необходимости ограничьте доступ фаерволом, например только подсетью Docker.
+
+### Примеры вызова API приложения
+
+```bash
+curl -sS -X POST 'http://localhost:8080/ollama/chat' \
+  -H 'Content-Type: application/json' \
+  -d '{"prompt":"Кратко опиши REST."}'
+
+curl -sS -X POST 'http://localhost:8080/ollama/autocomplete' \
+  -H 'Content-Type: application/json' \
+  -d '{"prefix":"func main() {\n\t"}'
+```
 
 ## Структура данных
 

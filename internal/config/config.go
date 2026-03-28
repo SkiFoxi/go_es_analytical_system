@@ -4,6 +4,8 @@ package config
 import (
 	"os"
 	"strconv"
+
+	"ollamaclient"
 )
 
 // Config содержит все параметры конфигурации приложения.
@@ -18,12 +20,18 @@ type Config struct {
 	AppPort          string // Порт для HTTP сервера
 
 	// Readiness check parameters
-	ReadinessDBTimeoutSec int    // Таймаут для проверки БД в секундах
-	ReadinessDiskPath     string // Путь для проверки диска
-	ReadinessDiskMinFreeMB int   // Минимальное свободное место на диске в MB
-	ReadinessRAMMinFreeMB  int   // Минимальная свободная оперативная память в MB
-	BuildVersion          string // Версия сборки
-	GitCommit             string // Хэш коммита Git
+	ReadinessDBTimeoutSec  int    // Таймаут для проверки БД в секундах
+	ReadinessDiskPath      string // Путь для проверки диска
+	ReadinessDiskMinFreeMB int    // Минимальное свободное место на диске в MB
+	ReadinessRAMMinFreeMB  int    // Минимальная свободная оперативная память в MB
+	BuildVersion           string // Версия сборки
+	GitCommit              string // Хэш коммита Git
+
+	// Ollama (OpenAI-совместимый API через go_ollama_client)
+	OllamaBaseURL           string // Базовый URL, например http://localhost:11434/v1
+	OllamaChatModel         string // Модель для чата
+	OllamaAutocompleteModel string // Модель для автодополнения кода
+	OllamaEmbedModel        string // Модель для эмбеддингов (на будущее)
 }
 
 // Load загружает конфигурацию из переменных окружения.
@@ -38,13 +46,36 @@ func Load() *Config {
 		PostgresDB:       getEnv("POSTGRES_DB", "analytical_db"),
 		AppPort:          getEnv("APP_PORT", "8080"),
 
-		ReadinessDBTimeoutSec: getEnvInt("READINESS_DB_TIMEOUT_SEC", 5),
-		ReadinessDiskPath:     getEnv("READINESS_DISK_PATH", "."),
+		ReadinessDBTimeoutSec:  getEnvInt("READINESS_DB_TIMEOUT_SEC", 5),
+		ReadinessDiskPath:      getEnv("READINESS_DISK_PATH", "."),
 		ReadinessDiskMinFreeMB: getEnvInt("READINESS_DISK_MIN_FREE_MB", 100),
 		ReadinessRAMMinFreeMB:  getEnvInt("READINESS_RAM_MIN_FREE_MB", 50),
-		BuildVersion:          getEnv("BUILD_VERSION", "dev"),
-		GitCommit:             getEnv("GIT_COMMIT", ""),
+		BuildVersion:           getEnv("BUILD_VERSION", "dev"),
+		GitCommit:              getEnv("GIT_COMMIT", ""),
+
+		OllamaBaseURL:           getEnv("OLLAMA_BASE_URL", ""),
+		OllamaChatModel:         getEnv("OLLAMA_CHAT_MODEL", ""),
+		OllamaAutocompleteModel: getEnv("OLLAMA_AUTOCOMPLETE_MODEL", ""),
+		OllamaEmbedModel:        getEnv("OLLAMA_EMBED_MODEL", ""),
 	}
+}
+
+// OllamaClientConfig собирает конфигурацию для ollamaclient: значения из .env через ollamaclient.DefaultConfig().
+func (c *Config) OllamaClientConfig() ollamaclient.OllamaConfig {
+	dc := ollamaclient.DefaultConfig()
+	if c.OllamaBaseURL != "" {
+		dc.BaseURL = c.OllamaBaseURL
+	}
+	if c.OllamaChatModel != "" {
+		dc.ChatModel = c.OllamaChatModel
+	}
+	if c.OllamaAutocompleteModel != "" {
+		dc.AutocompleteModel = c.OllamaAutocompleteModel
+	}
+	if c.OllamaEmbedModel != "" {
+		dc.EmbedModel = c.OllamaEmbedModel
+	}
+	return dc
 }
 
 func getEnv(key, defaultValue string) string {

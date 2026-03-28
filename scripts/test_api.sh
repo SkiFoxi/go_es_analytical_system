@@ -43,3 +43,12 @@ LOCATION_ID="loc_1"
 curl -s "$BASE_URL/locations/$LOCATION_ID" | jq .
 echo -e "\n"
 
+echo "=== Проверка ollama chat ==="
+curl --location "$BASE_URL/ollama/chat" \
+--header "Content-Type: application/json" \
+--data '{"prompt":"Скажи одно предложение: что такое REST."}'
+
+echo "=== Проверка ollama autocomplete ==="
+curl --location "$BASE_URL/ollama/autocomplete" \
+--header 'Content-Type: application/json' \
+--data '{"prefix":"dfunc main() {\n\tfmt."}'

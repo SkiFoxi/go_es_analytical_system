@@ -34,6 +34,7 @@ import (
 	"github.com/elastic/go-elasticsearch/v8"
 	"github.com/gorilla/mux"
 	httpSwagger "github.com/swaggo/http-swagger"
+	"ollamaclient"
 )
 
 func main() {
@@ -100,8 +101,10 @@ func main() {
 	defer pgStorage.Close()
 	log.Println("Connected to PostgreSQL")
 
+	ollamaClient := ollamaclient.NewClient(cfg.OllamaClientConfig())
+
 	// Инициализация handlers
-	h := handlers.NewHandlers(esStorage, pgStorage, cfg)
+	h := handlers.NewHandlers(esStorage, pgStorage, cfg, ollamaClient)
 
 	// Настройка роутера
 	router := mux.NewRouter()
@@ -111,6 +114,8 @@ func main() {
 	router.HandleFunc("/business-types", h.GetBusinessTypes).Methods("GET")
 	router.HandleFunc("/regions", h.GetRegions).Methods("GET")
 	router.HandleFunc("/readiness", h.GetReadiness).Methods("GET")
+	router.HandleFunc("/ollama/chat", h.OllamaChat).Methods("POST")
+	router.HandleFunc("/ollama/autocomplete", h.OllamaAutocomplete).Methods("POST")
 
 	// Swagger UI
 	router.PathPrefix("/swagger/").Handler(httpSwagger.Handler(
@@ -138,8 +143,8 @@ func main() {
 	srv := &http.Server{
 		Addr:         ":" + cfg.AppPort,
 		Handler:      router,
-		ReadTimeout:  15 * time.Second,
-		WriteTimeout: 15 * time.Second,
+		ReadTimeout:  120 * time.Second,
+		WriteTimeout: 120 * time.Second,
 		IdleTimeout:  60 * time.Second,
 	}
 

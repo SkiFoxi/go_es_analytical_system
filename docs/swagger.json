@@ -185,6 +185,139 @@
                 }
             }
         },
+        "/ollama/autocomplete": {
+            "post": {
+                "description": "Запрашивает продолжение по префиксу (ollamaclient.Autocomplete).",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "ollama"
+                ],
+                "summary": "Автодополнение кода через Ollama",
+                "parameters": [
+                    {
+                        "description": "Префикс кода",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/github_com_akozadaev_go_es_analytical_system_internal_models.OllamaAutocompleteRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_akozadaev_go_es_analytical_system_internal_models.OllamaAutocompleteResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Неверный запрос",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "502": {
+                        "description": "Ollama недоступен или ошибка вызова",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/ollama/chat": {
+            "post": {
+                "description": "Отправляет промпт в чат-модель (ollamaclient.Chat) и возвращает текст ответа.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "ollama"
+                ],
+                "summary": "Чат через Ollama",
+                "parameters": [
+                    {
+                        "description": "Промпт",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/github_com_akozadaev_go_es_analytical_system_internal_models.OllamaChatRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_akozadaev_go_es_analytical_system_internal_models.OllamaChatResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Неверный запрос",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "502": {
+                        "description": "Ollama недоступен или ошибка вызова",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/readiness": {
+            "get": {
+                "description": "Возвращает статус готовности сервиса, включая проверки БД, диска и памяти",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "health"
+                ],
+                "summary": "Проверка готовности сервиса",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/readiness.Report"
+                        }
+                    },
+                    "503": {
+                        "description": "Сервис не готов",
+                        "schema": {
+                            "$ref": "#/definitions/readiness.Report"
+                        }
+                    }
+                }
+            }
+        },
         "/regions": {
             "get": {
                 "description": "Возвращает все доступные регионы из справочника с поддержкой иерархии",
@@ -332,6 +465,38 @@
                 }
             }
         },
+        "github_com_akozadaev_go_es_analytical_system_internal_models.OllamaAutocompleteRequest": {
+            "type": "object",
+            "properties": {
+                "prefix": {
+                    "type": "string"
+                }
+            }
+        },
+        "github_com_akozadaev_go_es_analytical_system_internal_models.OllamaAutocompleteResponse": {
+            "type": "object",
+            "properties": {
+                "completion": {
+                    "type": "string"
+                }
+            }
+        },
+        "github_com_akozadaev_go_es_analytical_system_internal_models.OllamaChatRequest": {
+            "type": "object",
+            "properties": {
+                "prompt": {
+                    "type": "string"
+                }
+            }
+        },
+        "github_com_akozadaev_go_es_analytical_system_internal_models.OllamaChatResponse": {
+            "type": "object",
+            "properties": {
+                "content": {
+                    "type": "string"
+                }
+            }
+        },
         "github_com_akozadaev_go_es_analytical_system_internal_models.RecommendRequest": {
             "type": "object",
             "properties": {
@@ -383,6 +548,138 @@
                     "type": "integer"
                 },
                 "updated_at": {
+                    "type": "string"
+                }
+            }
+        },
+        "readiness.BuildCheck": {
+            "type": "object",
+            "properties": {
+                "commit": {
+                    "type": "string"
+                },
+                "go": {
+                    "type": "string"
+                },
+                "ok": {
+                    "type": "boolean"
+                },
+                "version": {
+                    "type": "string"
+                }
+            }
+        },
+        "readiness.Checks": {
+            "type": "object",
+            "properties": {
+                "build": {
+                    "$ref": "#/definitions/readiness.BuildCheck"
+                },
+                "database": {
+                    "$ref": "#/definitions/readiness.DatabaseCheck"
+                },
+                "disk": {
+                    "$ref": "#/definitions/readiness.DiskCheck"
+                },
+                "memory": {
+                    "$ref": "#/definitions/readiness.MemoryCheck"
+                }
+            }
+        },
+        "readiness.DatabaseCheck": {
+            "type": "object",
+            "properties": {
+                "error": {
+                    "type": "string"
+                },
+                "latency_ms": {
+                    "type": "number"
+                },
+                "ok": {
+                    "type": "boolean"
+                },
+                "timeout_sec": {
+                    "type": "number"
+                }
+            }
+        },
+        "readiness.DiskCheck": {
+            "type": "object",
+            "properties": {
+                "error": {
+                    "type": "string"
+                },
+                "free_bytes": {
+                    "type": "integer"
+                },
+                "min_free_bytes": {
+                    "type": "integer"
+                },
+                "ok": {
+                    "type": "boolean"
+                },
+                "path": {
+                    "type": "string"
+                },
+                "skipped": {
+                    "type": "string"
+                },
+                "total_bytes": {
+                    "type": "integer"
+                },
+                "unsupported_os": {
+                    "type": "boolean"
+                },
+                "used_percent": {
+                    "type": "number"
+                }
+            }
+        },
+        "readiness.MemoryCheck": {
+            "type": "object",
+            "properties": {
+                "error": {
+                    "type": "string"
+                },
+                "ok": {
+                    "type": "boolean"
+                },
+                "process_heap_alloc_bytes": {
+                    "type": "integer"
+                },
+                "process_heap_idle_bytes": {
+                    "type": "integer"
+                },
+                "process_heap_inuse_bytes": {
+                    "type": "integer"
+                },
+                "process_heap_sys_bytes": {
+                    "type": "integer"
+                },
+                "process_num_gc": {
+                    "type": "integer"
+                },
+                "skipped": {
+                    "type": "string"
+                },
+                "system_available_bytes": {
+                    "type": "integer"
+                },
+                "system_total_bytes": {
+                    "type": "integer"
+                },
+                "system_used_bytes": {
+                    "type": "integer"
+                }
+            }
+        },
+        "readiness.Report": {
+            "type": "object",
+            "properties": {
+                "checks": {
+                    "$ref": "#/definitions/readiness.Checks"
+                },
+                "status": {
                     "type": "string"
                 }
             }

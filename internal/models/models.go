@@ -63,9 +63,9 @@ type Region struct {
 // RecommendRequest представляет запрос на получение рекомендаций локаций.
 // Все поля, кроме City, являются обязательными.
 type RecommendRequest struct {
-	Region       string `json:"region"`        // Регион для поиска (обязательно)
-	City         string `json:"city,omitempty"` // Город для фильтрации (опционально)
-	BusinessType string `json:"business_type"`  // Тип бизнеса (обязательно)
+	Region       string `json:"region"`          // Регион для поиска (обязательно)
+	City         string `json:"city,omitempty"`  // Город для фильтрации (опционально)
+	BusinessType string `json:"business_type"`   // Тип бизнеса (обязательно)
 	Limit        int    `json:"limit,omitempty"` // Максимальное количество результатов (по умолчанию 20)
 }
 
@@ -74,4 +74,24 @@ type RecommendRequest struct {
 type RecommendResponse struct {
 	Locations []Location `json:"locations"`
 	Total     int        `json:"total"`
+}
+
+// OllamaChatRequest — тело POST /ollama/chat.
+type OllamaChatRequest struct {
+	Prompt string `json:"prompt"`
+}
+
+// OllamaChatResponse — ответ POST /ollama/chat.
+type OllamaChatResponse struct {
+	Content string `json:"content"`
+}
+
+// OllamaAutocompleteRequest — тело POST /ollama/autocomplete.
+type OllamaAutocompleteRequest struct {
+	Prefix string `json:"prefix"`
+}
+
+// OllamaAutocompleteResponse — ответ POST /ollama/autocomplete.
+type OllamaAutocompleteResponse struct {
+	Completion string `json:"completion"`
 }

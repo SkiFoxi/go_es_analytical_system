@@ -10,8 +10,9 @@ import (
 	"github.com/akozadaev/go_es_analytical_system/internal/config"
 	"github.com/akozadaev/go_es_analytical_system/internal/models"
 	"github.com/akozadaev/go_es_analytical_system/internal/storage"
-	"github.com/gorilla/mux"
 	readiness "github.com/akozadaev/go_readiness"
+	"github.com/gorilla/mux"
+	"ollamaclient"
 )
 
 // Handlers содержит зависимости для обработки HTTP запросов.
@@ -20,14 +21,21 @@ type Handlers struct {
 	esStorage *storage.ElasticsearchStorage // Хранилище для Elasticsearch/OpenSearch
 	pgStorage *storage.PostgresStorage      // Хранилище для PostgreSQL
 	cfg       *config.Config                // Конфигурация приложения
+	ollama    *ollamaclient.Client          // Клиент Ollama (OpenAI-совместимый API)
 }
 
 // NewHandlers создает новый экземпляр Handlers с заданными хранилищами.
-func NewHandlers(esStorage *storage.ElasticsearchStorage, pgStorage *storage.PostgresStorage, cfg *config.Config) *Handlers {
+func NewHandlers(
+	esStorage *storage.ElasticsearchStorage,
+	pgStorage *storage.PostgresStorage,
+	cfg *config.Config,
+	ollama *ollamaclient.Client,
+) *Handlers {
 	return &Handlers{
 		esStorage: esStorage,
 		pgStorage: pgStorage,
 		cfg:       cfg,
+		ollama:    ollama,
 	}
 }
 
@@ -216,6 +224,91 @@ func (h *Handlers) GetRegions(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// OllamaChat обрабатывает POST /ollama/chat — запрос к локальной чат-модели Ollama.
+//
+// @Summary      Чат через Ollama
+// @Description  Отправляет промпт в чат-модель (ollamaclient.Chat) и возвращает текст ответа.
+// @Tags         ollama
+// @Accept       json
+// @Produce      json
+// @Param        request  body      models.OllamaChatRequest  true  "Промпт"
+// @Success      200      {object}  models.OllamaChatResponse
+// @Failure      400      {object}  map[string]string  "Неверный запрос"
+// @Failure      502      {object}  map[string]string  "Ollama недоступен или ошибка вызова"
+// @Router       /ollama/chat [post]
+func (h *Handlers) OllamaChat(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	var req models.OllamaChatRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+	if req.Prompt == "" {
+		http.Error(w, "prompt is required", http.StatusBadRequest)
+		return
+	}
+
+	content, err := h.ollama.Chat(r.Context(), req.Prompt)
+	if err != nil {
+		log.Printf("Ollama chat error: %v", err)
+		writeOllamaUpstreamError(w, err)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	if err := json.NewEncoder(w).Encode(models.OllamaChatResponse{Content: content}); err != nil {
+		log.Printf("Error encoding Ollama chat response: %v", err)
+		http.Error(w, "Internal server error", http.StatusInternalServerError)
+		return
+	}
+}
+
+// OllamaAutocomplete обрабатывает POST /ollama/autocomplete — автодополнение кода через Ollama.
+//
+// @Summary      Автодополнение кода через Ollama
+// @Description  Запрашивает продолжение по префиксу (ollamaclient.Autocomplete).
+// @Tags         ollama
+// @Accept       json
+// @Produce      json
+// @Param        request  body      models.OllamaAutocompleteRequest  true  "Префикс кода"
+// @Success      200      {object}  models.OllamaAutocompleteResponse
+// @Failure      400      {object}  map[string]string  "Неверный запрос"
+// @Failure      502      {object}  map[string]string  "Ollama недоступен или ошибка вызова"
+// @Router       /ollama/autocomplete [post]
+func (h *Handlers) OllamaAutocomplete(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	var req models.OllamaAutocompleteRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+	if req.Prefix == "" {
+		http.Error(w, "prefix is required", http.StatusBadRequest)
+		return
+	}
+
+	completion, err := h.ollama.Autocomplete(r.Context(), req.Prefix)
+	if err != nil {
+		log.Printf("Ollama autocomplete error: %v", err)
+		writeOllamaUpstreamError(w, err)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	if err := json.NewEncoder(w).Encode(models.OllamaAutocompleteResponse{Completion: completion}); err != nil {
+		log.Printf("Error encoding Ollama autocomplete response: %v", err)
+		http.Error(w, "Internal server error", http.StatusInternalServerError)
+		return
+	}
+}
 
 // GetReadiness обрабатывает GET запрос на проверку готовности сервиса.
 // Проверяет подключение к БД, дисковое пространство, память и возвращает статус.
@@ -275,6 +368,16 @@ func (h *Handlers) GetReadiness(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+func writeOllamaUpstreamError(w http.ResponseWriter, err error) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusBadGateway)
+	if encErr := json.NewEncoder(w).Encode(map[string]string{
+		"error":   "ollama_request_failed",
+		"details": err.Error(),
+	}); encErr != nil {
+		log.Printf("encode Ollama error response: %v", encErr)
+	}
+}
 
 // HealthCheck обрабатывает GET запрос на проверку работоспособности сервиса.
 // Используется для мониторинга и проверки доступности API.

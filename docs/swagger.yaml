@@ -73,6 +73,26 @@ definitions:
       updated_at:
         type: string
     type: object
+  github_com_akozadaev_go_es_analytical_system_internal_models.OllamaAutocompleteRequest:
+    properties:
+      prefix:
+        type: string
+    type: object
+  github_com_akozadaev_go_es_analytical_system_internal_models.OllamaAutocompleteResponse:
+    properties:
+      completion:
+        type: string
+    type: object
+  github_com_akozadaev_go_es_analytical_system_internal_models.OllamaChatRequest:
+    properties:
+      prompt:
+        type: string
+    type: object
+  github_com_akozadaev_go_es_analytical_system_internal_models.OllamaChatResponse:
+    properties:
+      content:
+        type: string
+    type: object
   github_com_akozadaev_go_es_analytical_system_internal_models.RecommendRequest:
     properties:
       business_type:
@@ -108,6 +128,92 @@ definitions:
       parent_region_id:
         type: integer
       updated_at:
+        type: string
+    type: object
+  readiness.BuildCheck:
+    properties:
+      commit:
+        type: string
+      go:
+        type: string
+      ok:
+        type: boolean
+      version:
+        type: string
+    type: object
+  readiness.Checks:
+    properties:
+      build:
+        $ref: '#/definitions/readiness.BuildCheck'
+      database:
+        $ref: '#/definitions/readiness.DatabaseCheck'
+      disk:
+        $ref: '#/definitions/readiness.DiskCheck'
+      memory:
+        $ref: '#/definitions/readiness.MemoryCheck'
+    type: object
+  readiness.DatabaseCheck:
+    properties:
+      error:
+        type: string
+      latency_ms:
+        type: number
+      ok:
+        type: boolean
+      timeout_sec:
+        type: number
+    type: object
+  readiness.DiskCheck:
+    properties:
+      error:
+        type: string
+      free_bytes:
+        type: integer
+      min_free_bytes:
+        type: integer
+      ok:
+        type: boolean
+      path:
+        type: string
+      skipped:
+        type: string
+      total_bytes:
+        type: integer
+      unsupported_os:
+        type: boolean
+      used_percent:
+        type: number
+    type: object
+  readiness.MemoryCheck:
+    properties:
+      error:
+        type: string
+      ok:
+        type: boolean
+      process_heap_alloc_bytes:
+        type: integer
+      process_heap_idle_bytes:
+        type: integer
+      process_heap_inuse_bytes:
+        type: integer
+      process_heap_sys_bytes:
+        type: integer
+      process_num_gc:
+        type: integer
+      skipped:
+        type: string
+      system_available_bytes:
+        type: integer
+      system_total_bytes:
+        type: integer
+      system_used_bytes:
+        type: integer
+    type: object
+  readiness.Report:
+    properties:
+      checks:
+        $ref: '#/definitions/readiness.Checks'
+      status:
         type: string
     type: object
 host: localhost:8080
@@ -236,6 +342,95 @@ paths:
       summary: Получить рекомендации локаций
       tags:
       - locations
+  /ollama/autocomplete:
+    post:
+      consumes:
+      - application/json
+      description: Запрашивает продолжение по префиксу (ollamaclient.Autocomplete).
+      parameters:
+      - description: Префикс кода
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/github_com_akozadaev_go_es_analytical_system_internal_models.OllamaAutocompleteRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/github_com_akozadaev_go_es_analytical_system_internal_models.OllamaAutocompleteResponse'
+        "400":
+          description: Неверный запрос
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "502":
+          description: Ollama недоступен или ошибка вызова
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Автодополнение кода через Ollama
+      tags:
+      - ollama
+  /ollama/chat:
+    post:
+      consumes:
+      - application/json
+      description: Отправляет промпт в чат-модель (ollamaclient.Chat) и возвращает
+        текст ответа.
+      parameters:
+      - description: Промпт
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/github_com_akozadaev_go_es_analytical_system_internal_models.OllamaChatRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/github_com_akozadaev_go_es_analytical_system_internal_models.OllamaChatResponse'
+        "400":
+          description: Неверный запрос
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "502":
+          description: Ollama недоступен или ошибка вызова
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Чат через Ollama
+      tags:
+      - ollama
+  /readiness:
+    get:
+      consumes:
+      - application/json
+      description: Возвращает статус готовности сервиса, включая проверки БД, диска
+        и памяти
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/readiness.Report'
+        "503":
+          description: Сервис не готов
+          schema:
+            $ref: '#/definitions/readiness.Report'
+      summary: Проверка готовности сервиса
+      tags:
+      - health
   /regions:
     get:
       consumes:
